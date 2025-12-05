@@ -1,45 +1,74 @@
-FROM ros:noetic-ros-base-focal
+FROM ros:melodic-ros-base
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV ACCEPT_EULA=Y
 ENV CATKIN_WS=/catkin_ws
 
 # ------------------------------------------------------------------
-# OS + Azure Kinect SDK + ROS deps
+# Base utilities
 # ------------------------------------------------------------------
-RUN apt-get update && apt-get install -y \
-    curl gnupg2 lsb-release software-properties-common \
-    build-essential git cmake \
-    ros-noetic-rgbd-launch \
-    ros-noetic-image-proc \
-    ros-noetic-depth-image-proc \
-    ros-noetic-robot-state-publisher \
-    ros-noetic-joint-state-publisher \
-    ros-noetic-tf \
- && rm -rf /var/lib/apt/lists/*
-
-# Azure Kinect SDK repo (for 20.04)
-RUN curl -sSL https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
-    echo "deb [arch=amd64] https://packages.microsoft.com/ubuntu/$(lsb_release -rs)/prod $(lsb_release -cs) main" \
-      > /etc/apt/sources.list.d/microsoft-prod.list && \
-    apt-get update && apt-get install -y \
-      libk4a1.4 libk4a1.4-dev k4a-tools && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+    curl \
+    lsb-release \
+    wget \
+    gnupg \
+    tzdata \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
 # ------------------------------------------------------------------
-# Catkin workspace + Azure Kinect ROS Driver (melodic branch)
+# ROS: install "everything" you'll likely ever need
+# ------------------------------------------------------------------
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+    ros-melodic-desktop-full \
+    ros-melodic-rgbd-launch \
+    && rm -rf /var/lib/apt/lists/*
+
+# ------------------------------------------------------------------
+# Catkin workspace
 # ------------------------------------------------------------------
 RUN mkdir -p ${CATKIN_WS}/src
 WORKDIR ${CATKIN_WS}/src
 
-RUN git clone --branch melodic https://github.com/microsoft/Azure_Kinect_ROS_Driver.git azure_kinect_ros_driver
+RUN /bin/bash -c "source /opt/ros/melodic/setup.bash && catkin_init_workspace"
 
 WORKDIR ${CATKIN_WS}
-RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && catkin_make"
+RUN /bin/bash -c "source /opt/ros/melodic/setup.bash && catkin_make"
 
-# Make ROS env available in interactive shells
-RUN echo 'source /opt/ros/noetic/setup.bash' >> /root/.bashrc && \
-    echo 'source /catkin_ws/devel/setup.bash' >> /root/.bashrc
+RUN echo "source /opt/ros/melodic/setup.bash" >> /root/.bashrc && \
+    echo "source ${CATKIN_WS}/devel/setup.bash" >> /root/.bashrc && \
+    echo "export ROS_PACKAGE_PATH=\${ROS_PACKAGE_PATH}:${CATKIN_WS}" >> /root/.bashrc && \
+    echo "export ROS_WORKSPACE=${CATKIN_WS}" >> /root/.bashrc
 
-WORKDIR /catkin_ws
+# ------------------------------------------------------------------
+# Azure Kinect SDK (1.4.2) via Microsoft repo
+# ------------------------------------------------------------------
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
+    echo "deb [arch=amd64] https://packages.microsoft.com/ubuntu/18.04/prod bionic main" \
+      > /etc/apt/sources.list.d/microsoft-prod.list && \
+    apt-get update -y && \
+    apt-get install -y --no-install-recommends k4a-tools && \
+    rm -rf /var/lib/apt/lists/*
+
+# libk4a1.4 + dev from debs (matching 1.4.2 tools)
+RUN cd /tmp && \
+    wget https://packages.microsoft.com/ubuntu/18.04/prod/pool/main/libk/libk4a1.4/libk4a1.4_1.4.2_amd64.deb && \
+    wget https://packages.microsoft.com/ubuntu/18.04/prod/pool/main/libk/libk4a1.4-dev/libk4a1.4-dev_1.4.2_amd64.deb && \
+    apt-get update -y && \
+    ACCEPT_EULA=Y apt-get install -y ./libk4a1.4_1.4.2_amd64.deb ./libk4a1.4-dev_1.4.2_amd64.deb && \
+    rm -f libk4a1.4_1.4.2_amd64.deb libk4a1.4-dev_1.4.2_amd64.deb && \
+    rm -rf /var/lib/apt/lists/*
+
+# ------------------------------------------------------------------
+# Azure Kinect ROS Driver (melodic)
+# ------------------------------------------------------------------
+WORKDIR ${CATKIN_WS}/src
+RUN git clone https://github.com/microsoft/Azure_Kinect_ROS_Driver.git -b melodic Azure_Kinect_ROS_Driver
+
+WORKDIR ${CATKIN_WS}
+RUN /bin/bash -c "source /opt/ros/melodic/setup.bash && catkin_make"
+
+WORKDIR ${CATKIN_WS}
 CMD ["bash"]
 

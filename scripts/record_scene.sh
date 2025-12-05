@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-source /opt/ros/noetic/setup.bash
-source /catkin_ws/devel/setup.bash
-
 OUT_DIR=/data/rosbags
 mkdir -p "$OUT_DIR"
 

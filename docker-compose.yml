@@ -26,10 +26,10 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
       # SSD from host -> /data inside container
-      - /media/cvg-laptop-39/Extreme\ SSD/martin:/data
+      - "/media/cvg-robotics/Extreme\ SSD1/martin:/data"
 
       # Mount your launch + record script into the container
-      - ./launch/azure_kinect_record.launch:/catkin_ws/src/azure_kinect_ros_driver/launch/azure_kinect_record.launch:ro
+      - ./launch/kinect_rgbd.launch:/catkin_ws/src/Azure_Kinect_ROS_Driver/launch/kinect_rgbd.launch
       - ./scripts/record_scene.sh:/catkin_ws/record_scene.sh:ro
     stdin_open: true
     tty: true
